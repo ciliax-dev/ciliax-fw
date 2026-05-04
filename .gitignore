@@ -1,0 +1,11 @@
+build/
+.west/
+/modules/
+/zephyr/
+/nrf/
+/bootloader/
+/tools/
+.venv/
+.vscode/
+*.swp
+.DS_Store

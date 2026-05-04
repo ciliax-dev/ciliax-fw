@@ -47,7 +47,7 @@ Ports are the seams that make the rest of the system testable. Every external de
 
 - **NCS:** v3.2.x, pinned in `west.yml` to a release tag (never `main`)
 - **Build:** west + CMake + Kconfig + Devicetree (standard Zephyr stack)
-- **Language:** C++20 (`CONFIG_STD_CPP20=y`, `CONFIG_REQUIRES_FULL_LIBCPP=y`)
+- **Language:** C++20 (`CONFIG_STD_CPP20=y`). Minimal C++ runtime — full libstdc++ deliberately *not* linked, so heap-allocating standard containers won't compile in. Use ETL for runtime containers.
 - **Test framework:** GoogleTest for host unit tests; ztest for `native_sim` integration
 - **CI:** GitHub Actions; `nordicplayground/nrfconnect-sdk` Docker image pinned by digest
 - **Format/lint:** clang-format (LLVM-derived), clang-tidy (advisory at first)
@@ -56,9 +56,9 @@ Ports are the seams that make the rest of the system testable. Every external de
 
 See `docs/cpp_subset.md` for the canonical list. Quick reference:
 
-- **Use freely:** `constexpr`/`consteval`, `std::array`, `std::span`, `std::optional`, `std::expected` (or `tl::expected`), strong types, RAII, `enum class`, lambdas, structured bindings, `[[nodiscard]]`
-- **Use carefully:** virtual functions (avoid in ISRs), STL containers needing allocation, `std::function`
-- **Forbidden:** exceptions (`-fno-exceptions` is set), RTTI, heap after init, globals with non-trivial constructors that depend on each other
+- **Use freely:** `constexpr`/`consteval`, `std::array`, `std::span`, `std::optional`, `std::expected` (or `tl::expected`), ETL (`etl::vector<T, N>`, `etl::string<N>`, `etl::map<K, V, N>`, `etl::delegate`), strong types, RAII, `enum class`, lambdas, structured bindings, `[[nodiscard]]`
+- **Use carefully:** virtual functions (avoid in ISRs), `std::function` (heap risk — prefer templates or `etl::delegate` in hot paths)
+- **Forbidden / not available:** exceptions (`-fno-exceptions` is set), RTTI, heap after init, `std::vector`/`std::string`/`std::map`/`<iostream>` (full libstdc++ not linked, link will fail), globals with non-trivial constructors that depend on each other
 
 When in doubt, prefer compile-time over runtime, prefer `std::array<T, N>` over `T[N]`, prefer `std::span` over raw pointer + size.
 
@@ -124,7 +124,7 @@ If you're unsure whether an approach will work on the chip, write a small test o
 
 ## Where to find things
 
-- **Project docs:** `docs/` — `architecture.md`, `cpp_subset.md`, `development.md`
+- **Project docs:** `docs/` — `architecture.md`, `cpp_subset.md`, `development.md` (canonical decisions); `background.md` (rationale)
 - **Phase plans:** `docs/phases/` — phased project plan; check the current phase's plan before starting work
 - **Build script:** `scripts/build.sh` — Docker-based reproducible build
 - **CI config:** `.github/workflows/ci.yml`

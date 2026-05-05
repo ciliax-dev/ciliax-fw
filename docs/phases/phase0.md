@@ -20,7 +20,7 @@
 | 8 | Carve architecture | done (README in each of `domain/`/`ports/`/`adapters/zephyr/`/`adapters/mock/`; CMake globs `domain/*.cpp` and `adapters/zephyr/*.cpp`; `src/` on include path) |
 | 9 | First port + mock | done (`ports/i_led.hpp`, `adapters/mock/mock_led.hpp`; both compile standalone with `g++ -std=c++20`) |
 | 10 | Host test infra | done (`tests/host/CMakeLists.txt`; GoogleTest v1.15.2 via FetchContent; sanitizer build opt-in; configure verified) |
-| 11 | TDD Blinker | not started |
+| 11 | TDD Blinker | done (4/4 host tests green; same green under ASan+UBSan; clang-tidy clean on `domain/blinker.cpp`) |
 | 12 | Zephyr LED adapter + main | not started |
 | 13 | native_sim ztest | not started |
 | 14 | Lint + format + CI | not started |

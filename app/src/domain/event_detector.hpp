@@ -23,6 +23,8 @@ class EventDetector {
     static constexpr uint32_t kCooldownDurationMs = 2000;
 
     void enter_reporting();
+    void enter_cooldown();
+    void enter_idle();
 
     IClock& clock_;
     IEventPublisher& publisher_;

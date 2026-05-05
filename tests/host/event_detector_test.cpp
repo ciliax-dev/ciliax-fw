@@ -40,3 +40,39 @@ TEST_F(EventDetectorTest, TriggerInIdleStartsFastBlink) {
     detector.on_trigger();
     EXPECT_EQ(status.current, StatusPattern::FastBlink);
 }
+
+TEST_F(EventDetectorTest, TickBeforeReportingTimeoutStaysInReporting) {
+    detector.on_trigger();
+    clock.advance(499);
+    detector.tick();
+    EXPECT_EQ(detector.state(), EventDetector::State::Reporting);
+}
+
+TEST_F(EventDetectorTest, TickAfterReportingTimeoutTransitionsToCooldown) {
+    detector.on_trigger();
+    clock.advance(500);
+    detector.tick();
+    EXPECT_EQ(detector.state(), EventDetector::State::Cooldown);
+    EXPECT_EQ(status.current, StatusPattern::SolidOn);
+}
+
+TEST_F(EventDetectorTest, TickAfterCooldownTimeoutTransitionsToIdle) {
+    detector.on_trigger();
+    clock.advance(500);
+    detector.tick(); // -> Cooldown
+    clock.advance(2000);
+    detector.tick(); // -> Idle
+    EXPECT_EQ(detector.state(), EventDetector::State::Idle);
+    EXPECT_EQ(status.current, StatusPattern::Off);
+}
+
+TEST_F(EventDetectorTest, FullCycleTakesExpectedTotalTime) {
+    clock.set(0);
+    detector.on_trigger();
+    clock.advance(500);
+    detector.tick();
+    clock.advance(2000);
+    detector.tick();
+    EXPECT_EQ(detector.state(), EventDetector::State::Idle);
+    EXPECT_EQ(clock.now_ms(), 2500u);
+}

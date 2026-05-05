@@ -23,7 +23,7 @@
 | 11 | TDD Blinker | done (4/4 host tests green; same green under ASan+UBSan; clang-tidy clean on `domain/blinker.cpp`) |
 | 12 | Zephyr LED adapter + main | done (`adapters/zephyr/zephyr_led.hpp`; main.cpp composition root; flashed, LED1 blinks at ~1 Hz on the DK) |
 | 13 | native_sim ztest | done (`tests/integration/blink/`; 1/1 passed under `west twister -p native_sim`) |
-| 14 | Lint + format + CI | not started |
+| 14 | Lint + format + CI | done (`.clang-format` + tree reformat; `.github/workflows/ci.yml` with five jobs; `.clang-tidy` already landed early) |
 
 See [Plan deltas](#plan-deltas) for divergences from the original plan that were applied during execution.
 

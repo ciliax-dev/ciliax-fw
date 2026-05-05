@@ -115,6 +115,20 @@ Run unit and integration test suites with these on in CI. ASan catches use-after
 
 You'll need `libasan` installed on the host (`apt install libasan8` on Debian/Ubuntu).
 
+## Formatting
+
+The canonical style is in [`.clang-format`](../.clang-format) at the repo root: LLVM-derived, 4-space indent, 100-column limit, pointer/reference left-aligned, spaces (no tabs). CI's `format` job checks the tree on every push.
+
+```bash
+# Check the whole tree (no changes):
+clang-format --dry-run --Werror $(find app/src -name '*.cpp' -o -name '*.hpp')
+
+# Reformat in place:
+clang-format -i $(find app/src -name '*.cpp' -o -name '*.hpp')
+```
+
+`tests/host/` is included by the same find when you also lint test sources.
+
 ## Static analysis
 
 In CI on a separate, non-blocking job:
@@ -151,3 +165,9 @@ clang-format --dry-run --Werror $(find app/src -name '*.cpp' -o -name '*.hpp')
 ```
 
 If any fail, root-cause it. Don't suppress warnings, don't disable failing tests, don't lower compiler strictness to make CI green.
+
+## CI
+
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs five jobs on every push and PR (`format`, `host-tests`, `firmware-build`, `twister`, `clang-tidy`). The first four are required; `clang-tidy` is `continue-on-error: true` while the codebase is small. `firmware-build` uploads `zephyr.hex` / `merged.hex` as run artifacts.
+
+A concurrency group cancels older runs on the same ref, so successive pushes during a rebase don't pile up wait time on the slower Zephyr jobs.

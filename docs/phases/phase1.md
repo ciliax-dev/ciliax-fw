@@ -34,7 +34,7 @@ State values: `not started` → `in progress` → `done`. See [CLAUDE.md → Wor
 | 5  | TDD: guard conditions                            | XS | done |
 | 6  | Property-style robustness test                   | S  | done |
 | 7  | Zephyr adapters                                  | M  | done |
-| 8  | Composition root with deferred-from-ISR trigger  | M  | not started |
+| 8  | Composition root with deferred-from-ISR trigger  | M  | in progress |
 | 9  | Smoke test on hardware                           | XS | not started |
 | 10 | native_sim ztest with `CONFIG_TEST_HOOKS`        | M  | not started |
 | 11 | Docs follow-up commit                            | S  | not started |

@@ -1,39 +1,43 @@
-#include <etl/array.h>
-#include <etl/string_view.h>
-
+#include <zephyr/devicetree.h>
+#include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+
+#include "adapters/zephyr/zephyr_led.hpp"
+#include "domain/blinker.hpp"
 
 LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
 namespace {
 
-class Greeter {
-public:
-	explicit constexpr Greeter(const etl::string_view& name) : name_{name} {}
+// led0 is the Devicetree alias every Nordic DK overlays for "the green
+// status LED on the board." Resolved at compile time; the resulting
+// gpio_dt_spec carries the device pointer + pin + active-level flags.
+const struct gpio_dt_spec kLed0 = GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios);
 
-	[[nodiscard]] constexpr const etl::string_view& name() const { return name_; }
-
-private:
-	const etl::string_view& name_;
-};
-
-constexpr etl::string_view kProjectName{"my-project"};
-constexpr etl::array<int, 4> kPrimes{2, 3, 5, 7};
+// Tick rate is set by k_msleep(kTickPeriodMs) below; with period 10 the
+// blinker toggles every 500 ms (~1 Hz visible blink).
+constexpr std::uint32_t kBlinkPeriodTicks = 10;
+constexpr std::uint32_t kTickPeriodMs = 50;
 
 } // namespace
 
-int main(void)
+int main()
 {
-	constexpr Greeter greeter{kProjectName};
+	if (!gpio_is_ready_dt(&kLed0)) {
+		LOG_ERR("led0 gpio not ready");
+		return -1;
+	}
 
-	LOG_INF("hello from %.*s",
-		static_cast<int>(greeter.name().size()),
-		greeter.name().data());
-	LOG_INF("first prime: %d", kPrimes[0]);
+	ZephyrLed led{kLed0};
+	Blinker blinker{led, kBlinkPeriodTicks};
+
+	LOG_INF("blinker running (period=%u ticks, tick=%u ms)",
+		kBlinkPeriodTicks, kTickPeriodMs);
 
 	while (true) {
-		k_msleep(1000);
+		blinker.tick();
+		k_msleep(kTickPeriodMs);
 	}
 
 	return 0;

@@ -36,7 +36,8 @@ app/src/
 **The single most important rule:** `domain/`, `ports/`, and `adapters/mock/` must never `#include <zephyr/...>` or any Nordic header. Run this check before claiming a task is done:
 
 ```bash
-grep -r '#include <zephyr/' app/src/domain app/src/ports app/src/adapters/mock
+grep -r --include='*.cpp' --include='*.hpp' --include='*.h' \
+    '#include <zephyr/' app/src/domain app/src/ports app/src/adapters/mock
 ```
 
 If it returns anything, the architecture is broken — fix before continuing.
@@ -47,9 +48,9 @@ Ports are the seams that make the rest of the system testable. Every external de
 
 - **NCS:** v3.2.x, pinned in `west.yml` to a release tag (never `main`)
 - **Build:** west + CMake + Kconfig + Devicetree (standard Zephyr stack)
-- **Language:** C++20 (`CONFIG_STD_CPP20=y`). Minimal C++ runtime — full libstdc++ deliberately *not* linked, so heap-allocating standard containers won't compile in. Use ETL for runtime containers.
+- **Language:** C++20 (`CONFIG_STD_CPP20=y`). Minimal C++ runtime — full libstdc++ deliberately *not* linked, so heap-allocating standard containers (`std::vector`, `std::string`, `std::map`, `<iostream>`) compile but fail at link. Use ETL for runtime containers — wired up via `west.yml` at `<workspace>/modules/lib/etl/`. See [`docs/cpp_subset.md`](docs/cpp_subset.md) for how this is achieved (Zephyr's `MINIMAL_LIBCPP` + selective re-exposure of the toolchain's libstdc++ headers via the `ciliax_add_cxx_includes()` helper in [`cmake/zephyr_cxx_includes.cmake`](cmake/zephyr_cxx_includes.cmake), called from `app/CMakeLists.txt` and any other Zephyr-built target).
 - **Test framework:** GoogleTest for host unit tests; ztest for `native_sim` integration
-- **CI:** GitHub Actions; `nordicplayground/nrfconnect-sdk` Docker image pinned by digest
+- **CI / reproducible build:** GitHub Actions; `zephyrprojectrtos/ci` Docker image pinned by digest, driven by `scripts/build.sh`. (`nordicplayground/nrfconnect-sdk` was the original plan but stopped publishing tags after `v2.9-branch`; it has no v3.x image.)
 - **Format/lint:** clang-format (LLVM-derived), clang-tidy (advisory at first)
 
 ## C++ subset
@@ -75,10 +76,12 @@ Domain code should always be unit-testable on the host with no Zephyr involvemen
 
 ## Workflow conventions
 
+- **`main` is human-only.** Claude never commits directly to `main`. All Claude work goes on a `feature/<short-name>`, `fix/<short-name>`, or `refactor/<short-name>` branch and lands on `main` only when a human merges the PR. If a session starts on `main` with changes to make, switch to a branch first.
 - **Branches:** `feature/<short-name>`, `fix/<short-name>`, `refactor/<short-name>`
 - **Commits:** conventional-style is fine but not enforced. Imperative mood ("add MFCC computation", not "added MFCC computation"). Body explains *why* if non-obvious.
 - **No commits with failing tests on shared branches.** Squash WIP locally before pushing.
 - **PR descriptions** state: what changed, why, how it was tested, anything reviewers should look at carefully. No template ceremony.
+- **Docs land in a dedicated follow-up commit.** Whenever a task lands a lasting effect — completing a phase plan step, swapping a tool, adding/removing a dependency, changing a build path, or any decision that diverges from a doc — finish the implementation commit(s) first, then create a separate commit (typically titled `docs: …`) updating the affected docs. Keep code and docs in different commits so a reader bisecting or reverting one doesn't accidentally take the other. Targets in priority order: the relevant phase plan in `docs/phases/`, then `CLAUDE.md`, `README.md`, and `docs/<area>.md`. Record what's done and any plan deltas; divergences left only in chat history or commit messages are invisible to the next reader of the repo. This applies even when the user did not explicitly ask for the doc update.
 
 ## Verification before declaring "done"
 
@@ -86,7 +89,8 @@ For any task touching code, run *all* of these and confirm green before declarin
 
 ```bash
 # 1. Architecture invariant
-grep -r '#include <zephyr/' app/src/domain app/src/ports app/src/adapters/mock
+grep -r --include='*.cpp' --include='*.hpp' --include='*.h' \
+    '#include <zephyr/' app/src/domain app/src/ports app/src/adapters/mock
 # (should return nothing)
 
 # 2. Host unit tests, with sanitizers

@@ -33,7 +33,28 @@ The canonical list of language features we use, use carefully, and don't use. Th
 ## Standard and library
 
 - **C++20 ceiling.** `CONFIG_STD_CPP20=y`. C++23 isn't yet supported by the NCS build system.
-- **Minimal C++ runtime.** `CONFIG_REQUIRES_FULL_LIBCPP` is intentionally *not* set. This provides ABI bits — `new`/`delete`, static initialization, vtable support — without linking the heavy libstdc++ machinery. Header-only STL utilities (templates compiled into your code) work as normal. Heap-using containers (`std::vector`, `std::string`, `std::map`) and `<iostream>` won't link, by design: the compiler enforces "no heap-using STL," not code review.
+- **Minimal C++ runtime.** `CONFIG_REQUIRES_FULL_LIBCPP` is intentionally *not* set. This provides ABI bits — `new`/`delete`, static initialization, vtable support — without linking the heavy libstdc++ machinery. Header-only STL utilities (templates compiled into your code) work as normal. Heap-using containers (`std::vector`, `std::string`, `std::map`) and `<iostream>` won't link, by design: the **linker** enforces "no heap-using STL," not code review.
+
+### How that's wired
+
+Zephyr's `MINIMAL_LIBCPP` mode sets `-nostdinc++`, which removes both the toolchain's libstdc++ headers *and* its runtime. We want the headers without the runtime, so the helper at [`cmake/zephyr_cxx_includes.cmake`](../cmake/zephyr_cxx_includes.cmake) re-exposes the toolchain's `c++/<version>/` directory (and ETL's `include/`) as `SYSTEM` includes on a given target. The directory is located by asking the compiler for its target triple (`-dumpmachine`), so the glue keeps working across SDK versions and target archs. Any Zephyr-built target that wants the same C++ profile pulls the helper in:
+
+```cmake
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/<repo-root>/cmake)
+include(zephyr_cxx_includes)
+ciliax_add_cxx_includes(<target>)
+```
+
+`app/CMakeLists.txt` does this for the firmware build; `tests/integration/*/CMakeLists.txt` does it for ztests on `native_sim`.
+
+Net effect:
+
+- `<array>`, `<span>`, `<optional>`, `<expected>`, `<type_traits>`, `<concepts>`, most of `<algorithm>` — compile and link normally.
+- `<vector>`, `<string>`, `<map>`, `<iostream>` — compile (the headers are present) but fail at link with undefined references to `std::__throw_*`, `operator new`, etc.
+
+### ETL
+
+`etl::vector<T, N>`, `etl::string<N>`, `etl::map<K, V, N>`, `etl::circular_buffer<T, N>`, `etl::delegate` are the canonical fixed-capacity replacements for the heap-using STL containers. ETL is part of the west manifest (pinned in [`west.yml`](../west.yml), checked out at `<workspace>/modules/lib/etl/`) and `ciliax_add_cxx_includes()` (above) puts its `include/` on the search path. Use `<etl/array.h>`, `<etl/string_view.h>`, etc.
 
 ## The litmus test
 

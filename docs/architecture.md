@@ -28,7 +28,8 @@ Top to bottom:
 `domain/`, `ports/`, and `adapters/mock/` must never `#include <zephyr/...>` or any Nordic header. Run before claiming any task done:
 
 ```bash
-grep -r '#include <zephyr/' app/src/domain app/src/ports app/src/adapters/mock
+grep -r --include='*.cpp' --include='*.hpp' --include='*.h' \
+    '#include <zephyr/' app/src/domain app/src/ports app/src/adapters/mock
 ```
 
 If it returns anything, the architecture is broken — fix before continuing. This boundary is what makes everything else (host tests, sanitizers, fast TDD loop) work.

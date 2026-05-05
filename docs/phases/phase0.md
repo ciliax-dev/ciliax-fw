@@ -6,6 +6,27 @@
 
 **Hardware:** nRF5340 DK only.
 
+## Status
+
+| Step | Title | State |
+|------|-------|-------|
+| 1 | Toolchain install | done (host has NCS v3.2.4 via `nrfutil toolchain-manager`) |
+| 2 | Repo skeleton | done |
+| 3 | West workspace | done (`west.yml` pinned to v3.2.4) |
+| 4 | Minimal app builds | done (build green for `nrf5340dk/nrf5340/cpuapp`) |
+| 5 | Flash & verify on DK | done (LED + serial line confirmed by human) |
+| 6 | Docker lockdown | done (`scripts/build.sh` runs `zephyrprojectrtos/ci@sha256:db4d04…`) |
+| 7 | Enable C++ | done (`CONFIG_CPP` / `CONFIG_STD_CPP20`; ETL pinned at `modules/lib/etl`; libstdc++ headers re-exposed under MINIMAL_LIBCPP; flashed, serial confirmed) |
+| 8 | Carve architecture | done (README in each of `domain/`/`ports/`/`adapters/zephyr/`/`adapters/mock/`; CMake globs `domain/*.cpp` and `adapters/zephyr/*.cpp`; `src/` on include path) |
+| 9 | First port + mock | done (`ports/i_led.hpp`, `adapters/mock/mock_led.hpp`; both compile standalone with `g++ -std=c++20`) |
+| 10 | Host test infra | done (`tests/host/CMakeLists.txt`; GoogleTest v1.15.2 via FetchContent; sanitizer build opt-in; configure verified) |
+| 11 | TDD Blinker | done (4/4 host tests green; same green under ASan+UBSan; clang-tidy clean on `domain/blinker.cpp`) |
+| 12 | Zephyr LED adapter + main | done (`adapters/zephyr/zephyr_led.hpp`; main.cpp composition root; flashed, LED1 blinks at ~1 Hz on the DK) |
+| 13 | native_sim ztest | done (`tests/integration/blink/`; 1/1 passed under `west twister -p native_sim`) |
+| 14 | Lint + format + CI | done (`.clang-format` + tree reformat; `.github/workflows/ci.yml` with five jobs; `.clang-tidy` already landed early) |
+
+See [Plan deltas](#plan-deltas) for divergences from the original plan that were applied during execution.
+
 ---
 
 ## How to use this plan with Claude
@@ -259,7 +280,7 @@ Expected: one commit; the four subdirectories exist.
 **Prompt for Claude:**
 
 > Create `west.yml` at the repo root with:
-> - NCS pinned to `v3.2.1` (revision)
+> - NCS pinned to `v3.2.4` (revision)
 > - An allowlist that includes only: `zephyr`, `mcuboot`, `mbedtls`, `cmsis`, `hal_nordic`, `nrfxlib`, `segger`, `tinycrypt`
 > - `self.path: app`
 >
@@ -297,9 +318,9 @@ Expected: only `west.yml` is new and tracked. Modules cloned outside the repo ar
 
 **Verify:**
 ```bash
-ls build/zephyr/zephyr.hex
+ls build/app/zephyr/zephyr.hex
 ```
-Expected: file exists.
+Expected: file exists. (Sysbuild puts each subimage in its own directory; the merged hex is at `build/merged.hex`.)
 
 ---
 
@@ -337,16 +358,16 @@ git add . && git commit -m "Minimal app builds and runs on DK"
 
 > Set up reproducible Docker builds:
 >
-> 1. Pull `nordicplayground/nrfconnect-sdk:v3.2-branch` and capture its repo digest (`docker inspect ... --format '{{index .RepoDigests 0}}'`).
-> 2. Create `scripts/build.sh` (executable) that runs `west update && west build -b nrf5340dk/nrf5340/cpuapp app --pristine=auto` inside a container pinned to that exact digest, with the project bind-mounted and the user mapped to the host UID/GID.
+> 1. Pull `zephyrprojectrtos/ci:v0.28.9` (bundles Zephyr SDK 0.17.4, which matches `zephyr/SDK_VERSION` for ncs-v3.2.4) and capture its repo digest (`docker inspect ... --format '{{index .RepoDigests 0}}'`). Do **not** use `nordicplayground/nrfconnect-sdk` — that publisher has no v3.x tag.
+> 2. Create `scripts/build.sh` (executable) that runs `west update && west build -b nrf5340dk/nrf5340/cpuapp app --pristine=auto` inside a container pinned to that exact digest, with the parent west workspace bind-mounted at `/workdir`, the user mapped to the host UID/GID, and `ZEPHYR_SDK_INSTALL_DIR=/opt/toolchains/zephyr-sdk-0.17.4` exported (the image does not export it).
 > 3. Update `README.md`'s build section to reference this script as the canonical build command.
 >
-> Run the script once and confirm it produces `build/zephyr/zephyr.hex`.
+> Run the script once and confirm it produces `build/app/zephyr/zephyr.hex`.
 
 **Verify:**
 ```bash
 ./scripts/build.sh
-ls build/zephyr/zephyr.hex
+ls build/app/zephyr/zephyr.hex
 ```
 
 **Note:** This step is parallel to Step 7 — you can do it later if you want to keep momentum. CI will work without it.
@@ -358,29 +379,30 @@ ls build/zephyr/zephyr.hex
 | | |
 |---|---|
 | **Mode** | 🤖 Claude |
-| **Inputs Claude needs** | `app/prj.conf`, `app/src/main.c`, `app/CMakeLists.txt` |
-| **Outputs** | Updated configs; `main.c` renamed to `main.cpp`; `docs/cpp_subset.md` |
+| **Inputs Claude needs** | `app/prj.conf`, `app/src/main.c`, `app/CMakeLists.txt`, `west.yml` |
+| **Outputs** | Updated configs; `main.c` renamed to `main.cpp`; ETL added to manifest; `app/CMakeLists.txt` re-exposes libstdc++ headers; `docs/cpp_subset.md` (already substantive) |
 
 **Prompt for Claude:**
 
 > Enable C++20 and validate it on the chip:
 >
-> 1. Add to `app/prj.conf`: `CONFIG_CPP=y`, `CONFIG_STD_CPP20=y`, `CONFIG_REQUIRES_FULL_LIBCPP=y`, `CONFIG_GLIBCXX_LIBCPP=y`.
+> 1. Add to `app/prj.conf`: `CONFIG_CPP=y`, `CONFIG_STD_CPP20=y`. **Do not** add `CONFIG_REQUIRES_FULL_LIBCPP=y` / `CONFIG_GLIBCXX_LIBCPP=y` — that links the full libstdc++ runtime and breaks the no-heap-STL guarantee in `docs/cpp_subset.md`.
 > 2. Rename `app/src/main.c` → `app/src/main.cpp` and update `app/CMakeLists.txt` accordingly.
-> 3. Replace the contents of `main.cpp` with a small example that exercises C++20: a `Greeter` class with a const-ref name member, a `constexpr std::array<int, 4>` of primes, and a `main()` that logs the greeting plus `kPrimes[0]`.
-> 4. Create `docs/cpp_subset.md` documenting the project's C++ subset:
->    - **Use freely:** constexpr/consteval, std::array, std::span, std::optional, std::expected, strong types, RAII, enum class, lambdas, structured bindings, `[[nodiscard]]`
->    - **Use carefully:** virtual functions (avoid in ISRs), STL containers requiring allocation, std::function
->    - **Forbidden:** exceptions (`-fno-exceptions`), RTTI, heap after init, globals with non-trivial constructors
-> 5. Run `west build -b nrf5340dk/nrf5340/cpuapp app --pristine=always` to confirm a clean rebuild succeeds.
+> 3. Add ETL to `west.yml` as a manifest project pinned to a release tag (e.g. `20.47.1`), at `path: modules/lib/etl`. Run `west update` to fetch it.
+> 4. Update `app/CMakeLists.txt` to:
+>    - Re-expose the toolchain's libstdc++ headers as a `SYSTEM` include on the `app` target. Locate them by asking the compiler for its target triple via `-dumpmachine`, then globbing `<sdk>/<triple>/include/c++/*`. This is needed because Zephyr's `MINIMAL_LIBCPP` sets `-nostdinc++`, which strips both headers and runtime; we want the headers without the runtime.
+>    - Add `${ZEPHYR_BASE}/../modules/lib/etl/include` to the include path.
+> 5. Replace the contents of `main.cpp` with a small example that exercises C++20: a `Greeter` class with a const-ref name member, a `constexpr etl::array<int, 4>` of primes, and a `main()` that logs the greeting plus `kPrimes[0]`. Use `etl::array` and `etl::string_view` (rather than `std::array`/`std::string_view`) to make the ETL-first convention visible from the start.
+> 6. `docs/cpp_subset.md` already documents the project's C++ subset and standard-library policy; confirm it's still accurate after the changes and update if not.
+> 7. Run `west build -b nrf5340dk/nrf5340/cpuapp app --pristine=always` to confirm a clean rebuild succeeds.
 
 **Verify:**
 ```bash
-grep -E 'CONFIG_(CPP|STD_CPP20|REQUIRES_FULL_LIBCPP)=y' app/prj.conf | wc -l
+grep -E 'CONFIG_(CPP|STD_CPP20)=y' app/prj.conf | wc -l
 ls app/src/main.cpp
 ls docs/cpp_subset.md
 ```
-Expected: 3, then both files exist.
+Expected: 2, then both files exist.
 
 **Human gate:** Flash and visually confirm the new log line appears (`first prime: 2`).
 
@@ -556,7 +578,7 @@ Expected: clean build.
 > Set up a smoke test on `native_sim`:
 >
 > 1. Create `tests/integration/blink/CMakeLists.txt`: standard ztest preamble (`find_package(Zephyr ...)`), single source `src/main.c`, plus `target_include_directories(app PRIVATE ${CMAKE_SOURCE_DIR}/../../../app/src)`.
-> 2. Create `tests/integration/blink/prj.conf` enabling `CONFIG_ZTEST`, `CONFIG_LOG`, `CONFIG_CPP`, `CONFIG_STD_CPP20`, `CONFIG_REQUIRES_FULL_LIBCPP`.
+> 2. Create `tests/integration/blink/prj.conf` enabling `CONFIG_ZTEST`, `CONFIG_LOG`, `CONFIG_CPP`, `CONFIG_STD_CPP20`. **Do not** add `CONFIG_REQUIRES_FULL_LIBCPP` — match the firmware's MINIMAL_LIBCPP profile so heap-using STL stays unlinked in tests too. Pull in the libstdc++/ETL header glue the same way `app/CMakeLists.txt` does, via the helper at `cmake/zephyr_cxx_includes.cmake`: `list(APPEND CMAKE_MODULE_PATH .../cmake)`, `include(zephyr_cxx_includes)`, `ciliax_add_cxx_includes(app)`.
 > 3. Create `tests/integration/blink/src/main.c` with a single `ZTEST_SUITE(blink_smoke, NULL, NULL, NULL, NULL, NULL)` and one `ZTEST(blink_smoke, sanity)` body of `zassert_true(true)`.
 > 4. Create `tests/integration/blink/testcase.yaml` allowing only `native_sim`, harness `ztest`, tag `integration`.
 > 5. Run `west twister -T tests/integration/blink -p native_sim --inline-logs` and report results.
@@ -633,3 +655,23 @@ Phase 0 is complete when **all** of these are true:
 - **Treating `docs/` as TODO.** The three documents written during Phase 0 (`cpp_subset.md`, `architecture.md`, `development.md`) only get harder to write later. Confirm Claude wrote them with substance, not placeholders.
 
 When all 13 boxes in the definition of done check, the foundation is real, and Phase 1 (the EventDetector state machine) starts on top of this scaffold without modifying any of it.
+
+---
+
+## Plan deltas
+
+Things that diverged from the original plan during execution. Recorded so a re-run, or a future reader, doesn't have to rediscover them.
+
+- **Step 3 — west allowlist needs `cmsis_6` for NCS v3.2.x.** NCS v3.2 splits CMSIS into legacy `cmsis` (`modules/hal/cmsis`) and the new `cmsis_6` (`modules/hal/cmsis_6`). Without both in `name-allowlist`, `SOC_FAMILY_NORDIC_NRF` y-selects `CMSIS_CORE_HAS_SYSTEM_CORE_CLOCK` from `modules/cmsis_6/Kconfig` whose dependencies aren't satisfied, and Zephyr's strict-warning Kconfig gate aborts the build. The plan's allowlist has been updated.
+- **Step 6 — image swap.** The plan named `nordicplayground/nrfconnect-sdk:v3.2-branch`; that publisher stopped releasing tags after `v2.9-branch` (Dec 2024) and has no v3.x image. We use `zephyrprojectrtos/ci:v0.28.9` (Zephyr SDK 0.17.4, which matches `zephyr/SDK_VERSION` for ncs-v3.2.4). Newer CI tags (v0.29.x) ship Zephyr SDK 1.0.x, which `find_package(Zephyr-sdk 0.16)` rejects on version-major mismatch. The image also does not export `ZEPHYR_SDK_INSTALL_DIR`; the build script sets it explicitly.
+- **Sysbuild artifact path.** With sysbuild (the default in NCS v3.2.x), each subimage gets its own build dir. The flashable hex is at `build/app/zephyr/zephyr.hex` (or the multi-image `build/merged.hex`), not the pre-sysbuild `build/zephyr/zephyr.hex` referenced in some step verifications.
+- **Commit-on-DK-verify.** The plan ends Step 5 with a single combined commit covering Steps 4 + 5. We chose one-commit-per-step instead: Step 4's build-passing files committed before the flash, Step 5 produces no file changes and is verified by the human without a marker commit.
+- **Step 7 — libcpp / ETL setup.** The original plan added `CONFIG_REQUIRES_FULL_LIBCPP=y` + `CONFIG_GLIBCXX_LIBCPP=y` to get the C++20 headers (`<array>`, `<span>`, `<optional>`, …). Those configs link the full libstdc++ runtime, which would erase the link-time guarantee that heap-using STL (`std::vector`, `std::string`, `std::map`, `<iostream>`) is unavailable. We kept `MINIMAL_LIBCPP`, added ETL to the manifest (pinned `20.47.1` at `modules/lib/etl`), and re-exposed just the toolchain's libstdc++ headers in `app/CMakeLists.txt` as a `SYSTEM` include (located via `${CMAKE_CXX_COMPILER} -dumpmachine` so it survives SDK / target-arch changes). Net effect: header-only STL compiles, heap-using STL still fails at link, ETL provides the canonical fixed-capacity container path. `docs/cpp_subset.md`, `docs/background.md`, and `CLAUDE.md` were updated to match. Step 7 above was rewritten in place.
+- **Step 13 — twister rejects `ZTEST(suite, sanity)`; needs `test_sanity`.** The plan suggested `ZTEST(blink_smoke, sanity)` for the smoke body, but twister's symbol scanner errors with "Found a test that does not start with test_" and refuses to load the suite. Renamed to `test_sanity`; otherwise unchanged. Same constraint will apply to every future ztest function name.
+- **Step 13 — `ciliax_add_cxx_includes()` rewritten to query the compiler.** First time the helper was called from a non-firmware build (native_sim host g++) it failed with "could not locate libstdc++ headers": the previous implementation walked the Zephyr SDK's filesystem layout. Replaced with a `${CMAKE_CXX_COMPILER} -x c++ -E -v -` query that parses the verbose stderr; same headers come back for both SDK and host toolchains. Recorded so a re-run doesn't repeat the discovery.
+- **`scripts/build.sh` writes to `build-docker/`, not `build/`.** Sharing the default `build/` between the host's `west build` and the container caused stale-path failures: each side caches its filesystem view (host paths vs the container's `/workdir/...`) into CMake's binary tree, so the other side either had to wipe and re-pristine or ran with broken paths in `compile_commands.json`. Splitting them sidesteps the issue without losing anything — the `build*/` `.gitignore` pattern already covers both. Container artifacts now live at `build-docker/app/zephyr/zephyr.hex` / `build-docker/merged.hex`. README updated.
+- **Step 10 — `add_executable(runtests)` needs a source under CMake ≥ 3.28.** The plan's wording ("sources to be filled in next step") implied an empty `add_executable`; CMake 3.28 hard-rejects that. Worked around with a configure-time placeholder TU written into the build dir; the placeholder contributes nothing because `gtest_main` provides `main()`, and it doesn't enter git because the build dir is gitignored. Side effect: build/runs of an empty `runtests` succeed (reporting 0 tests) instead of failing as the plan suggested — harmless; step 11's two-pass TDD failure mode is unchanged because the failure comes from `blinker_test.cpp` referencing a not-yet-existing header.
+- **Step 10 — `CMAKE_EXPORT_COMPILE_COMMANDS=ON` in the host build.** Not in the plan. Added so clang-tidy and IDEs can lint against host-clean compile commands; the firmware build's `compile_commands.json` bakes in the container's `/workdir/...` paths and arm-zephyr-eabi flags and isn't usable for host-side tooling.
+- **Step 10 — `.gitignore` broadened from `build/` to also match `build-*/`.** Catches `tests/host/build-asan/` and any future `build-debug/` / `build-coverage/` without further edits.
+- **Step 14 — `.clang-tidy` landed early.** Step 14 bundles `.clang-format`, `.clang-tidy`, source-tree formatting, and the GitHub Actions workflow. We landed `.clang-tidy` ahead of the rest so new code under `domain/`/`ports/`/`adapters/mock/` is checked from the moment it's written, rather than auditing accumulated drift later. The file at the repo root matches the spec in step 14 below, plus five extra disables tuned for embedded reality (`magic-numbers` ×2, `pointer-arithmetic`, `non-private-member-variables-in-classes` ×2 — mock test doubles intentionally expose call counters as public fields). Each disable carries a one-line rationale in the file. CI integration still ships with step 14.
+- **Step 7 — `GIT_EXEC_PATH` needed for `west update` outside Docker.** When invoking `west update` from the NCS toolchain bundle's environment (i.e. not via `scripts/build.sh`), the bundle's git can't fetch over HTTPS unless `GIT_EXEC_PATH` points at the bundle's own `usr/local/libexec/git-core` (otherwise: `git: 'remote-https' is not a git command`). The toolchain's `environment.json` has this entry; `nrfutil toolchain-manager launch ...` sets it, hand-rolled `PATH` exports often don't. Hit when fetching the new ETL manifest project.

@@ -1,4 +1,7 @@
 build/
+build-*/
+twister-out/
+twister-out.*/
 .west/
 /modules/
 /zephyr/
@@ -7,5 +10,6 @@ build/
 /tools/
 .venv/
 .vscode/
+.claude/settings.local.json
 *.swp
 .DS_Store

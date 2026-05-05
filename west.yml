@@ -1,0 +1,32 @@
+manifest:
+  version: "1.2"
+
+  remotes:
+    - name: ncs
+      url-base: https://github.com/nrfconnect
+    - name: etlcpp
+      url-base: https://github.com/ETLCPP
+
+  projects:
+    - name: nrf
+      remote: ncs
+      repo-path: sdk-nrf
+      revision: v3.2.4
+      import:
+        name-allowlist:
+          - zephyr
+          - mcuboot
+          - mbedtls
+          - cmsis
+          - cmsis_6
+          - hal_nordic
+          - nrfxlib
+          - segger
+          - tinycrypt
+    - name: etl
+      remote: etlcpp
+      revision: 20.47.1
+      path: modules/lib/etl
+
+  self:
+    path: ciliax-fw

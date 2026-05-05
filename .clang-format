@@ -1,0 +1,43 @@
+---
+# Formatting policy for ciliax-fw C++ source.
+#
+# LLVM-derived. Deviations from LLVM:
+#   - IndentWidth:  4   (LLVM defaults to 2; this codebase reads with 4)
+#   - ColumnLimit:  100 (matches the strict-warning compile lines and
+#                        modern reading widths; LLVM is 80)
+# Tab handling is explicit: spaces only, four of them. Mixed-mode files
+# are confusing in diffs.
+#
+# Run on a single file:    clang-format -i path/to/file.cpp
+# Format the whole tree:   clang-format -i $(find app/src tests/host \
+#                              -name '*.cpp' -o -name '*.hpp')
+# Check (no changes):      clang-format --dry-run --Werror <files>
+
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 100
+PointerAlignment: Left
+ReferenceAlignment: Left
+UseTab: Never
+TabWidth: 4
+
+# Short single-statement functions can stay on one line (e.g. trivial
+# getters and the on()/off()/toggle() forwarders in adapter classes).
+# Lambdas already had this; Inline keeps it scoped to inline class
+# members, not free functions.
+AllowShortFunctionsOnASingleLine: Inline
+
+# Stop the formatter from collapsing 'else if' chains and trailing
+# `else` clauses in unhelpful ways. The defaults are mostly fine; pin
+# the cases that bit us in similar projects.
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+
+# C++20 keywords clang-format predates need explicit hints.
+Standard: c++20
+
+# Sort #includes inside grouping but don't merge groups. Our file
+# convention: project-local includes after stdlib/system; an empty
+# line separates the groups.
+SortIncludes: CaseInsensitive
+IncludeBlocks: Preserve

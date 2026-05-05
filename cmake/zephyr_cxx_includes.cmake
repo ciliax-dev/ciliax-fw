@@ -15,33 +15,46 @@
 #     include(zephyr_cxx_includes)
 #     ciliax_add_cxx_includes(app)
 #
-# The libstdc++ header dir is located by querying the active C++ compiler
-# for its target triple (-dumpmachine) and globbing the matching
-# c++/<version>/ folder under the Zephyr SDK, so this keeps working
-# across SDK versions and target archs.
+# Header dirs are extracted by asking the active C++ compiler what its
+# include search paths would be (`-x c++ -E -v -` reads from /dev/null
+# and the verbose stderr lists the search path). This works for both
+# the cross compiler used for the firmware build (arm-zephyr-eabi-g++)
+# and the host compiler used by native_sim ztests, regardless of where
+# either keeps libstdc++ on disk.
 
 function(ciliax_add_cxx_includes target)
     execute_process(
-        COMMAND ${CMAKE_CXX_COMPILER} -dumpmachine
-        OUTPUT_VARIABLE _gcc_target
-        OUTPUT_STRIP_TRAILING_WHITESPACE
+        COMMAND ${CMAKE_CXX_COMPILER} -x c++ -E -v -
+        INPUT_FILE /dev/null
+        OUTPUT_VARIABLE _cpp_stdout
+        ERROR_VARIABLE _cpp_stderr
+        RESULT_VARIABLE _cpp_status
     )
-    get_filename_component(_zephyr_sdk_bin "${CMAKE_CXX_COMPILER}" DIRECTORY)
-    get_filename_component(_zephyr_sdk_root "${_zephyr_sdk_bin}/.." ABSOLUTE)
-    file(GLOB _libstdcxx_include_dir
-        "${_zephyr_sdk_root}/${_gcc_target}/include/c++/*"
-    )
-    if(NOT _libstdcxx_include_dir)
+    if(NOT _cpp_status EQUAL 0)
         message(FATAL_ERROR
-            "ciliax_add_cxx_includes: could not locate libstdc++ headers "
-            "under ${_zephyr_sdk_root}/${_gcc_target}/include/c++/")
+            "ciliax_add_cxx_includes: ${CMAKE_CXX_COMPILER} -x c++ -E -v - "
+            "exited with ${_cpp_status}:\n${_cpp_stderr}")
     endif()
-    list(GET _libstdcxx_include_dir 0 _libstdcxx_include_dir)
+
+    # Pull each ` /some/path/c++/...` line out of the verbose stderr
+    # ("ignoring duplicate ..." messages start with a non-space and are
+    # filtered by the leading-space anchor).
+    set(_libstdcxx_dirs "")
+    string(REPLACE "\n" ";" _cpp_lines "${_cpp_stderr}")
+    foreach(_line IN LISTS _cpp_lines)
+        if(_line MATCHES "^ +(.+/c\\+\\+/.*)$")
+            list(APPEND _libstdcxx_dirs ${CMAKE_MATCH_1})
+        endif()
+    endforeach()
+
+    if(NOT _libstdcxx_dirs)
+        message(FATAL_ERROR
+            "ciliax_add_cxx_includes: no libstdc++ include paths found in "
+            "${CMAKE_CXX_COMPILER}'s search path. Stderr was:\n${_cpp_stderr}")
+    endif()
 
     target_include_directories(${target} SYSTEM PRIVATE
-        ${_libstdcxx_include_dir}
-        ${_libstdcxx_include_dir}/${_gcc_target}
-        ${_libstdcxx_include_dir}/backward
+        ${_libstdcxx_dirs}
         ${ZEPHYR_BASE}/../modules/lib/etl/include
     )
 endfunction()

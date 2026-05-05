@@ -578,7 +578,7 @@ Expected: clean build.
 > Set up a smoke test on `native_sim`:
 >
 > 1. Create `tests/integration/blink/CMakeLists.txt`: standard ztest preamble (`find_package(Zephyr ...)`), single source `src/main.c`, plus `target_include_directories(app PRIVATE ${CMAKE_SOURCE_DIR}/../../../app/src)`.
-> 2. Create `tests/integration/blink/prj.conf` enabling `CONFIG_ZTEST`, `CONFIG_LOG`, `CONFIG_CPP`, `CONFIG_STD_CPP20`. **Do not** add `CONFIG_REQUIRES_FULL_LIBCPP` — match the firmware's MINIMAL_LIBCPP profile so heap-using STL stays unlinked in tests too. The same libstdc++ header re-exposure as `app/CMakeLists.txt` (or the extracted `cmake/` helper, once that lands) needs to apply to this test's CMakeLists.
+> 2. Create `tests/integration/blink/prj.conf` enabling `CONFIG_ZTEST`, `CONFIG_LOG`, `CONFIG_CPP`, `CONFIG_STD_CPP20`. **Do not** add `CONFIG_REQUIRES_FULL_LIBCPP` — match the firmware's MINIMAL_LIBCPP profile so heap-using STL stays unlinked in tests too. Pull in the libstdc++/ETL header glue the same way `app/CMakeLists.txt` does, via the helper at `cmake/zephyr_cxx_includes.cmake`: `list(APPEND CMAKE_MODULE_PATH .../cmake)`, `include(zephyr_cxx_includes)`, `ciliax_add_cxx_includes(app)`.
 > 3. Create `tests/integration/blink/src/main.c` with a single `ZTEST_SUITE(blink_smoke, NULL, NULL, NULL, NULL, NULL)` and one `ZTEST(blink_smoke, sanity)` body of `zassert_true(true)`.
 > 4. Create `tests/integration/blink/testcase.yaml` allowing only `native_sim`, harness `ztest`, tag `integration`.
 > 5. Run `west twister -T tests/integration/blink -p native_sim --inline-logs` and report results.

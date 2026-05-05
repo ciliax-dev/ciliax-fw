@@ -22,15 +22,17 @@ Size column uses t-shirt sizing calibrated to a focused-execution day:
 
 Estimates are best-case-with-no-surprises; debugging a property-test failure or a flaky devicetree alias can bump a step one size up.
 
+State values: `not started` → `in progress` → `done`. See [CLAUDE.md → Workflow conventions](../../CLAUDE.md#workflow-conventions) for the rule that keeps this table live.
+
 | Step | Title | Size | State |
 |------|-------|------|-------|
-| 0  | Code coverage scaffolding                        | S  | not started |
-| 1  | Ports (no implementations)                       | XS | not started |
-| 2  | Mock adapters                                    | XS | not started |
-| 3  | TDD: initial state + first transition (two-pass) | M  | not started |
-| 4  | TDD: time-based transitions                      | S  | not started |
-| 5  | TDD: guard conditions                            | XS | not started |
-| 6  | Property-style robustness test                   | S  | not started |
+| 0  | Code coverage scaffolding                        | S  | done |
+| 1  | Ports (no implementations)                       | XS | done |
+| 2  | Mock adapters                                    | XS | done |
+| 3  | TDD: initial state + first transition (two-pass) | M  | done |
+| 4  | TDD: time-based transitions                      | S  | done |
+| 5  | TDD: guard conditions                            | XS | done |
+| 6  | Property-style robustness test                   | S  | done |
 | 7  | Zephyr adapters                                  | M  | not started |
 | 8  | Composition root with deferred-from-ISR trigger  | M  | not started |
 | 9  | Smoke test on hardware                           | XS | not started |

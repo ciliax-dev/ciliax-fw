@@ -115,6 +115,23 @@ Run unit and integration test suites with these on in CI. ASan catches use-after
 
 You'll need `libasan` installed on the host (`apt install libasan8` on Debian/Ubuntu).
 
+## Coverage
+
+`tests/host/CMakeLists.txt` exposes an `ENABLE_COVERAGE` option that adds `--coverage -O0 -g` to the `runtests` target. It uses gcc's gcov instrumentation, so build with `g++` (clang's `-fprofile-instr-generate` would need different reporter wiring). Coverage and sanitizers can't share a build dir — the CMake configure rejects the combination.
+
+Local loop:
+
+```bash
+cmake -S tests/host -B tests/host/build-cov -DENABLE_COVERAGE=ON
+cmake --build tests/host/build-cov -j
+ctest --test-dir tests/host/build-cov --output-on-failure
+gcovr --root . --filter 'app/src/domain/.*' --print-summary tests/host/build-cov/
+```
+
+CI runs the same sequence in the `coverage` job and fails if line coverage on `app/src/domain/` drops below 95 %. The job is `continue-on-error: true` until the EventDetector property test (Phase 1, Step 11) lands enough domain code to clear the threshold; the requirement is then promoted to blocking.
+
+`gcovr` ≥ 7.0 is needed for the `--fail-under-line` flag; install via `pip install gcovr` or `apt install gcovr` on recent Debian/Ubuntu.
+
 ## Formatting
 
 The canonical style is in [`.clang-format`](../.clang-format) at the repo root: LLVM-derived, 4-space indent, 100-column limit, pointer/reference left-aligned, spaces (no tabs). CI's `format` job checks the tree on every push.

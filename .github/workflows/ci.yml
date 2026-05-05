@@ -93,6 +93,48 @@ jobs:
         working-directory: ciliax-fw
         run: west twister -T tests/integration -p native_sim --inline-logs
 
+  # Advisory until phase 1 step 11 lands the EventDetector property
+  # test and pushes domain coverage above the threshold; today it
+  # would fail-under because only blinker.cpp exists. Promote to a
+  # required job (drop continue-on-error) at that point.
+  coverage:
+    name: Coverage (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+              build-essential cmake ninja-build gcovr
+
+      - name: Configure
+        run: cmake -S tests/host -B tests/host/build-cov -G Ninja -DENABLE_COVERAGE=ON
+
+      - name: Build
+        run: cmake --build tests/host/build-cov -j
+
+      - name: Test
+        run: ctest --test-dir tests/host/build-cov --output-on-failure
+
+      - name: Generate coverage report
+        run: |
+          gcovr --root . \
+                --filter 'app/src/domain/.*' \
+                --print-summary \
+                --fail-under-line 95 \
+                --xml-pretty -o coverage.xml \
+                tests/host/build-cov/
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: coverage
+          path: coverage.xml
+
   # Advisory: surfaces findings but never blocks merging while the
   # codebase is small. Promote to required once domain/ has enough
   # signal to make it useful.

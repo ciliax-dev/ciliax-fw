@@ -28,6 +28,19 @@ set(_warning_flags
 option(ENABLE_SANITIZERS
     "Build host tests with AddressSanitizer + UBSan" OFF)
 
+option(ENABLE_COVERAGE
+    "Build host tests with gcov instrumentation (gcc/g++ only)" OFF)
+
+# The two are deliberately mutually exclusive in a single build dir:
+# coverage wants -O0 for stable line mapping, sanitizers want their own
+# heap shadow, and mixing the two binary layouts produces noisy
+# .gcda/.gcno output. Use a separate build-cov/ tree for coverage.
+if(ENABLE_SANITIZERS AND ENABLE_COVERAGE)
+    message(FATAL_ERROR
+        "ENABLE_SANITIZERS and ENABLE_COVERAGE cannot be combined; "
+        "configure each into its own build directory.")
+endif()
+
 if(ENABLE_SANITIZERS)
     set(_sanitizer_flags
         -fsanitize=address,undefined
@@ -37,6 +50,12 @@ if(ENABLE_SANITIZERS)
     )
 else()
     set(_sanitizer_flags "")
+endif()
+
+if(ENABLE_COVERAGE)
+    set(_coverage_flags --coverage -O0 -g)
+else()
+    set(_coverage_flags "")
 endif()
 
 # Where the code under test lives. domain/, ports/, adapters/mock/ are
@@ -80,8 +99,12 @@ target_include_directories(runtests PRIVATE ${APP_SRC})
 target_compile_options(runtests PRIVATE
     ${_warning_flags}
     ${_sanitizer_flags}
+    ${_coverage_flags}
 )
-target_link_options(runtests PRIVATE ${_sanitizer_flags})
+target_link_options(runtests PRIVATE
+    ${_sanitizer_flags}
+    ${_coverage_flags}
+)
 target_link_libraries(runtests PRIVATE gtest_main)
 
 gtest_discover_tests(runtests)

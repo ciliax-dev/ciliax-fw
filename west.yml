@@ -1,0 +1,25 @@
+manifest:
+  version: "1.2"
+
+  remotes:
+    - name: ncs
+      url-base: https://github.com/nrfconnect
+
+  projects:
+    - name: nrf
+      remote: ncs
+      repo-path: sdk-nrf
+      revision: v3.2.4
+      import:
+        name-allowlist:
+          - zephyr
+          - mcuboot
+          - mbedtls
+          - cmsis
+          - hal_nordic
+          - nrfxlib
+          - segger
+          - tinycrypt
+
+  self:
+    path: ciliax-fw

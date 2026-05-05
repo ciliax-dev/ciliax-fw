@@ -259,7 +259,7 @@ Expected: one commit; the four subdirectories exist.
 **Prompt for Claude:**
 
 > Create `west.yml` at the repo root with:
-> - NCS pinned to `v3.2.1` (revision)
+> - NCS pinned to `v3.2.4` (revision)
 > - An allowlist that includes only: `zephyr`, `mcuboot`, `mbedtls`, `cmsis`, `hal_nordic`, `nrfxlib`, `segger`, `tinycrypt`
 > - `self.path: app`
 >

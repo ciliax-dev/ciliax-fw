@@ -1,0 +1,127 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# Cancel a still-running CI when a newer push to the same ref arrives.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    name: clang-format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang-format
+
+      - name: Verify formatting
+        run: |
+          files=$(find app/src -name '*.cpp' -o -name '*.hpp')
+          clang-format --dry-run --Werror $files
+
+  host-tests:
+    name: Host tests (ASan + UBSan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+              build-essential cmake ninja-build
+
+      - name: Configure
+        run: cmake -S tests/host -B tests/host/build-asan -G Ninja -DENABLE_SANITIZERS=ON
+
+      - name: Build
+        run: cmake --build tests/host/build-asan -j
+
+      - name: Test
+        run: ctest --test-dir tests/host/build-asan --output-on-failure
+
+  firmware-build:
+    name: Firmware build (nRF5340 cpuapp)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: ciliax-fw
+
+      - name: Setup Zephyr / NCS workspace
+        uses: zephyrproject-rtos/action-zephyr-setup@v1
+        with:
+          app-path: ciliax-fw
+          toolchains: arm-zephyr-eabi
+
+      - name: Build
+        working-directory: ciliax-fw
+        run: west build -b nrf5340dk/nrf5340/cpuapp app
+
+      - name: Upload hex artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nrf5340-hex
+          path: |
+            ciliax-fw/build/app/zephyr/zephyr.hex
+            ciliax-fw/build/merged.hex
+
+  twister:
+    name: Twister (native_sim)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: ciliax-fw
+
+      - name: Setup Zephyr / NCS workspace
+        uses: zephyrproject-rtos/action-zephyr-setup@v1
+        with:
+          app-path: ciliax-fw
+          toolchains: arm-zephyr-eabi
+
+      - name: Run integration tests on native_sim
+        working-directory: ciliax-fw
+        run: west twister -T tests/integration -p native_sim --inline-logs
+
+  # Advisory: surfaces findings but never blocks merging while the
+  # codebase is small. Promote to required once domain/ has enough
+  # signal to make it useful.
+  clang-tidy:
+    name: clang-tidy (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+              clang-tidy cmake ninja-build build-essential
+
+      # tests/host's CMake exports compile_commands.json (with
+      # CMAKE_EXPORT_COMPILE_COMMANDS=ON) — host-clean flags, no
+      # arm-zephyr-eabi noise. clang-tidy needs only configure, not
+      # build, to consume them.
+      - name: Configure host build (for compile_commands.json)
+        run: cmake -S tests/host -B tests/host/build -G Ninja
+
+      - name: Run clang-tidy on domain sources
+        run: |
+          shopt -s nullglob
+          files=(app/src/domain/*.cpp)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "no domain sources to lint"
+            exit 0
+          fi
+          clang-tidy -p tests/host/build "${files[@]}"

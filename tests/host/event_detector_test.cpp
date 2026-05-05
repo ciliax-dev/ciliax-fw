@@ -106,3 +106,25 @@ TEST_F(EventDetectorTest, TriggerAfterFullCycleIsAccepted) {
     EXPECT_EQ(detector.event_count(), 2u);
     EXPECT_EQ(detector.dropped_count(), 0u);
 }
+
+// Hammer the FSM across 10000 ticks with a periodic trigger pattern
+// that intentionally outpaces the reporting+cooldown window. Every
+// trigger is either accepted (event_count++) or dropped
+// (dropped_count++) — the sum can never exceed the number of triggers
+// issued, and every accepted trigger publishes exactly once. Run
+// under ASan / UBSan to catch ordering or overflow bugs no
+// example-based test would surface.
+TEST_F(EventDetectorTest, InvariantsHoldUnderRapidInput) {
+    constexpr int kIterations = 10000;
+    for (int i = 0; i < kIterations; ++i) {
+        if (i % 3 == 0) {
+            detector.on_trigger();
+        }
+        clock.advance(100);
+        detector.tick();
+
+        const uint32_t triggers_issued = static_cast<uint32_t>((i / 3) + 1);
+        EXPECT_LE(detector.event_count() + detector.dropped_count(), triggers_issued);
+        EXPECT_EQ(static_cast<uint32_t>(publisher.publish_calls), detector.event_count());
+    }
+}

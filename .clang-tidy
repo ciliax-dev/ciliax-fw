@@ -1,0 +1,51 @@
+---
+# Static-analysis policy for the Zephyr-free layers (domain/, ports/,
+# adapters/mock/). Code under adapters/zephyr/ and main.cpp wraps Zephyr
+# APIs and is expected to look like Zephyr code; HeaderFilterRegex below
+# excludes those layers from header analysis, and CI only runs the tool
+# on app/src/domain/*.cpp.
+#
+# Phase 0 step 14 (per docs/phases/phase0.md) ships this file plus a
+# clang-tidy CI job set to `continue-on-error: true` — findings are
+# advisory at first. Local devs see WarningsAsErrors turn findings into
+# errors; fix them, or refine the disables list here with a one-line
+# rationale.
+
+Checks: >
+  bugprone-*,
+  cppcoreguidelines-*,
+  modernize-*,
+  performance-*,
+  readability-*,
+  -modernize-use-trailing-return-type,
+  -readability-identifier-length,
+  -readability-magic-numbers,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-non-private-member-variables-in-classes,
+  -misc-non-private-member-variables-in-classes
+
+# Disable rationale:
+#   modernize-use-trailing-return-type — per phase 0 plan; opinionated
+#       style with no real benefit on this codebase.
+#   readability-identifier-length — punishes loop counters and short
+#       names that read fine in context (`i`, `n`, `it`).
+#   readability-magic-numbers / cppcoreguidelines-avoid-magic-numbers —
+#       fires on every pin number, register address, baud rate, and
+#       buffer size constant. Embedded code is full of these.
+#   cppcoreguidelines-pro-bounds-pointer-arithmetic — pointer arithmetic
+#       is intrinsic to embedded buffer handling. ETL spans / std::span
+#       are the bounds-checked path; this rule is too broad.
+#   cppcoreguidelines-non-private-member-variables-in-classes /
+#   misc-non-private-member-variables-in-classes — mock test doubles
+#       (e.g. MockLed) intentionally expose call counters as public
+#       fields so tests can assert on them directly.
+
+WarningsAsErrors: '*'
+
+# Headers analyzed only when they live under the Zephyr-free layers.
+# Excluding adapters/zephyr/ keeps clang-tidy from drowning in noise
+# from <zephyr/...> headers and Zephyr's macro-heavy idioms.
+HeaderFilterRegex: 'app/src/(domain|ports|adapters/mock)/.*'
+
+FormatStyle: file

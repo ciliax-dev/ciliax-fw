@@ -1,0 +1,5 @@
+tests:
+  blink.smoke:
+    platform_allow: native_sim
+    harness: ztest
+    tags: integration

@@ -358,29 +358,30 @@ ls build/zephyr/zephyr.hex
 | | |
 |---|---|
 | **Mode** | 🤖 Claude |
-| **Inputs Claude needs** | `app/prj.conf`, `app/src/main.c`, `app/CMakeLists.txt` |
-| **Outputs** | Updated configs; `main.c` renamed to `main.cpp`; `docs/cpp_subset.md` |
+| **Inputs Claude needs** | `app/prj.conf`, `app/src/main.c`, `app/CMakeLists.txt`, `west.yml` |
+| **Outputs** | Updated configs; `main.c` renamed to `main.cpp`; ETL added to manifest; `app/CMakeLists.txt` re-exposes libstdc++ headers; `docs/cpp_subset.md` (already substantive) |
 
 **Prompt for Claude:**
 
 > Enable C++20 and validate it on the chip:
 >
-> 1. Add to `app/prj.conf`: `CONFIG_CPP=y`, `CONFIG_STD_CPP20=y`, `CONFIG_REQUIRES_FULL_LIBCPP=y`, `CONFIG_GLIBCXX_LIBCPP=y`.
+> 1. Add to `app/prj.conf`: `CONFIG_CPP=y`, `CONFIG_STD_CPP20=y`. **Do not** add `CONFIG_REQUIRES_FULL_LIBCPP=y` / `CONFIG_GLIBCXX_LIBCPP=y` — that links the full libstdc++ runtime and breaks the no-heap-STL guarantee in `docs/cpp_subset.md`.
 > 2. Rename `app/src/main.c` → `app/src/main.cpp` and update `app/CMakeLists.txt` accordingly.
-> 3. Replace the contents of `main.cpp` with a small example that exercises C++20: a `Greeter` class with a const-ref name member, a `constexpr std::array<int, 4>` of primes, and a `main()` that logs the greeting plus `kPrimes[0]`.
-> 4. Create `docs/cpp_subset.md` documenting the project's C++ subset:
->    - **Use freely:** constexpr/consteval, std::array, std::span, std::optional, std::expected, strong types, RAII, enum class, lambdas, structured bindings, `[[nodiscard]]`
->    - **Use carefully:** virtual functions (avoid in ISRs), STL containers requiring allocation, std::function
->    - **Forbidden:** exceptions (`-fno-exceptions`), RTTI, heap after init, globals with non-trivial constructors
-> 5. Run `west build -b nrf5340dk/nrf5340/cpuapp app --pristine=always` to confirm a clean rebuild succeeds.
+> 3. Add ETL to `west.yml` as a manifest project pinned to a release tag (e.g. `20.47.1`), at `path: modules/lib/etl`. Run `west update` to fetch it.
+> 4. Update `app/CMakeLists.txt` to:
+>    - Re-expose the toolchain's libstdc++ headers as a `SYSTEM` include on the `app` target. Locate them by asking the compiler for its target triple via `-dumpmachine`, then globbing `<sdk>/<triple>/include/c++/*`. This is needed because Zephyr's `MINIMAL_LIBCPP` sets `-nostdinc++`, which strips both headers and runtime; we want the headers without the runtime.
+>    - Add `${ZEPHYR_BASE}/../modules/lib/etl/include` to the include path.
+> 5. Replace the contents of `main.cpp` with a small example that exercises C++20: a `Greeter` class with a const-ref name member, a `constexpr etl::array<int, 4>` of primes, and a `main()` that logs the greeting plus `kPrimes[0]`. Use `etl::array` and `etl::string_view` (rather than `std::array`/`std::string_view`) to make the ETL-first convention visible from the start.
+> 6. `docs/cpp_subset.md` already documents the project's C++ subset and standard-library policy; confirm it's still accurate after the changes and update if not.
+> 7. Run `west build -b nrf5340dk/nrf5340/cpuapp app --pristine=always` to confirm a clean rebuild succeeds.
 
 **Verify:**
 ```bash
-grep -E 'CONFIG_(CPP|STD_CPP20|REQUIRES_FULL_LIBCPP)=y' app/prj.conf | wc -l
+grep -E 'CONFIG_(CPP|STD_CPP20)=y' app/prj.conf | wc -l
 ls app/src/main.cpp
 ls docs/cpp_subset.md
 ```
-Expected: 3, then both files exist.
+Expected: 2, then both files exist.
 
 **Human gate:** Flash and visually confirm the new log line appears (`first prime: 2`).
 

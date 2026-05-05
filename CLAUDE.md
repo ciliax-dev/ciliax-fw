@@ -47,7 +47,7 @@ Ports are the seams that make the rest of the system testable. Every external de
 
 - **NCS:** v3.2.x, pinned in `west.yml` to a release tag (never `main`)
 - **Build:** west + CMake + Kconfig + Devicetree (standard Zephyr stack)
-- **Language:** C++20 (`CONFIG_STD_CPP20=y`). Minimal C++ runtime — full libstdc++ deliberately *not* linked, so heap-allocating standard containers won't compile in. Use ETL for runtime containers.
+- **Language:** C++20 (`CONFIG_STD_CPP20=y`). Minimal C++ runtime — full libstdc++ deliberately *not* linked, so heap-allocating standard containers (`std::vector`, `std::string`, `std::map`, `<iostream>`) compile but fail at link. Use ETL for runtime containers — wired up via `west.yml` at `<workspace>/modules/lib/etl/`. See [`docs/cpp_subset.md`](docs/cpp_subset.md) for how this is achieved (Zephyr's `MINIMAL_LIBCPP` + selective re-exposure of the toolchain's libstdc++ headers in `app/CMakeLists.txt`).
 - **Test framework:** GoogleTest for host unit tests; ztest for `native_sim` integration
 - **CI:** GitHub Actions; `nordicplayground/nrfconnect-sdk` Docker image pinned by digest
 - **Format/lint:** clang-format (LLVM-derived), clang-tidy (advisory at first)

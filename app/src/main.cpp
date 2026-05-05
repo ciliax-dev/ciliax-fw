@@ -22,23 +22,21 @@ constexpr std::uint32_t kTickPeriodMs = 50;
 
 } // namespace
 
-int main()
-{
-	if (!gpio_is_ready_dt(&kLed0)) {
-		LOG_ERR("led0 gpio not ready");
-		return -1;
-	}
+int main() {
+    if (!gpio_is_ready_dt(&kLed0)) {
+        LOG_ERR("led0 gpio not ready");
+        return -1;
+    }
 
-	ZephyrLed led{kLed0};
-	Blinker blinker{led, kBlinkPeriodTicks};
+    ZephyrLed led{kLed0};
+    Blinker blinker{led, kBlinkPeriodTicks};
 
-	LOG_INF("blinker running (period=%u ticks, tick=%u ms)",
-		kBlinkPeriodTicks, kTickPeriodMs);
+    LOG_INF("blinker running (period=%u ticks, tick=%u ms)", kBlinkPeriodTicks, kTickPeriodMs);
 
-	while (true) {
-		blinker.tick();
-		k_msleep(kTickPeriodMs);
-	}
+    while (true) {
+        blinker.tick();
+        k_msleep(kTickPeriodMs);
+    }
 
-	return 0;
+    return 0;
 }

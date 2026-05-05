@@ -12,19 +12,19 @@
 // caller's tick rate, not wall clock. period_ticks is assumed > 0;
 // behavior at zero is undefined and not exercised by tests.
 class Blinker {
-public:
-	Blinker(ILed& led, std::uint32_t period_ticks);
+  public:
+    Blinker(ILed& led, std::uint32_t period_ticks);
 
-	void tick();
+    void tick();
 
-	Blinker(const Blinker&) = delete;
-	Blinker& operator=(const Blinker&) = delete;
-	Blinker(Blinker&&) = delete;
-	Blinker& operator=(Blinker&&) = delete;
-	~Blinker() = default;
+    Blinker(const Blinker&) = delete;
+    Blinker& operator=(const Blinker&) = delete;
+    Blinker(Blinker&&) = delete;
+    Blinker& operator=(Blinker&&) = delete;
+    ~Blinker() = default;
 
-private:
-	ILed& led_;
-	std::uint32_t period_ticks_;
-	std::uint32_t count_{0};
+  private:
+    ILed& led_;
+    std::uint32_t period_ticks_;
+    std::uint32_t count_{0};
 };

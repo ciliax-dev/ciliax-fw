@@ -6,15 +6,15 @@
 // production, MockLed records calls for host unit tests. Domain code only
 // ever sees this interface.
 struct ILed {
-	virtual void on() = 0;
-	virtual void off() = 0;
-	virtual void toggle() = 0;
+    virtual void on() = 0;
+    virtual void off() = 0;
+    virtual void toggle() = 0;
 
-	virtual ~ILed() = default;
+    virtual ~ILed() = default;
 
-	ILed() = default;
-	ILed(const ILed&) = delete;
-	ILed& operator=(const ILed&) = delete;
-	ILed(ILed&&) = delete;
-	ILed& operator=(ILed&&) = delete;
+    ILed() = default;
+    ILed(const ILed&) = delete;
+    ILed& operator=(const ILed&) = delete;
+    ILed(ILed&&) = delete;
+    ILed& operator=(ILed&&) = delete;
 };

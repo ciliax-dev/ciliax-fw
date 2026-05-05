@@ -119,7 +119,7 @@ You'll need `libasan` installed on the host (`apt install libasan8` on Debian/Ub
 
 In CI on a separate, non-blocking job:
 
-- **`clang-tidy`** with a curated `.clang-tidy` (start from `cppcoreguidelines-*`, `bugprone-*`, `performance-*`, `readability-*`, then disable noisy ones one by one).
+- **`clang-tidy`** with the curated [`.clang-tidy`](../.clang-tidy) at the repo root (`bugprone-*`, `cppcoreguidelines-*`, `modernize-*`, `performance-*`, `readability-*` minus a small set of disables, each with a one-line rationale in the file). Scope is limited via `HeaderFilterRegex` to `app/src/(domain|ports|adapters/mock)/` — adapters/zephyr/ and main.cpp wrap Zephyr APIs and are exempt. Run on a single file with: `clang-tidy app/src/domain/foo.cpp -- -std=c++20 -I app/src`. Once `tests/host/` lands, point at its `compile_commands.json` instead: `clang-tidy -p tests/host/build app/src/domain/foo.cpp`.
 - **`cppcheck`** as a second opinion.
 - **clang static analyzer** (`scan-build`) — finds different issues than clang-tidy.
 - **Compiler warnings as errors:** `-Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wnon-virtual-dtor -Werror`. Catches more than most static analyzers and costs nothing.

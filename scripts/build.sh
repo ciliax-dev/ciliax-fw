@@ -25,4 +25,10 @@ exec docker run --rm \
   -v "$WORKSPACE_DIR:/workdir" \
   -w "/workdir/$PROJECT_NAME" \
   "$IMAGE" \
-  bash -c "west update && west build -b nrf5340dk/nrf5340/cpuapp app --pristine=auto"
+  bash -c "west update && west build -b nrf5340dk/nrf5340/cpuapp app --build-dir build-docker --pristine=auto"
+# --build-dir is intentional: native 'west build' uses the default build/,
+# the container build uses build-docker/. Each side caches paths from its
+# own filesystem view (host paths vs the container's /workdir/...), so a
+# shared dir would force a pristine rebuild on every context switch and
+# silently feed the other side stale paths in compile_commands.json.
+# Both directories are covered by the .gitignore 'build*/' pattern.

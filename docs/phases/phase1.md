@@ -35,8 +35,8 @@ State values: `not started` → `in progress` → `done`. See [CLAUDE.md → Wor
 | 6  | Property-style robustness test                   | S  | done |
 | 7  | Zephyr adapters                                  | M  | done |
 | 8  | Composition root with deferred-from-ISR trigger  | M  | done |
-| 9  | Smoke test on hardware                           | XS | not started |
-| 10 | native_sim ztest with `CONFIG_TEST_HOOKS`        | M  | not started |
+| 9  | Smoke test on hardware                           | XS | done |
+| 10 | native_sim ztest with `CONFIG_TEST_HOOKS`        | M  | done |
 | 11 | Docs follow-up commit                            | S  | not started |
 
 Roll-up: ~4× M, 4× S, 4× XS → roughly **3–5 focused days** end-to-end if nothing goes sideways. The four M steps (3, 7, 8, 10) are where time will actually go.

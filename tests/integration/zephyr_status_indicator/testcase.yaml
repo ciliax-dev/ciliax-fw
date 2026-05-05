@@ -1,0 +1,6 @@
+tests:
+  app.zephyr_status_indicator:
+    platform_allow:
+      - native_sim
+    harness: ztest
+    tags: integration

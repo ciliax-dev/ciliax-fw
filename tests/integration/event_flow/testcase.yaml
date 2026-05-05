@@ -1,0 +1,6 @@
+tests:
+  app.event_flow:
+    platform_allow:
+      - native_sim
+    harness: ztest
+    tags: integration

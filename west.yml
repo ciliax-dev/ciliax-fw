@@ -4,6 +4,8 @@ manifest:
   remotes:
     - name: ncs
       url-base: https://github.com/nrfconnect
+    - name: etlcpp
+      url-base: https://github.com/ETLCPP
 
   projects:
     - name: nrf
@@ -21,6 +23,10 @@ manifest:
           - nrfxlib
           - segger
           - tinycrypt
+    - name: etl
+      remote: etlcpp
+      revision: 20.47.1
+      path: modules/lib/etl
 
   self:
     path: ciliax-fw

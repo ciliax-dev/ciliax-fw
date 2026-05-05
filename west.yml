@@ -16,6 +16,7 @@ manifest:
           - mcuboot
           - mbedtls
           - cmsis
+          - cmsis_6
           - hal_nordic
           - nrfxlib
           - segger

@@ -6,6 +6,8 @@ EventDetector::EventDetector(IClock& clock, IEventPublisher& publisher, IStatusI
 void EventDetector::on_trigger() {
     if (state_ == State::Idle) {
         enter_reporting();
+    } else {
+        ++dropped_count_;
     }
 }
 

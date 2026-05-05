@@ -76,3 +76,33 @@ TEST_F(EventDetectorTest, FullCycleTakesExpectedTotalTime) {
     EXPECT_EQ(detector.state(), EventDetector::State::Idle);
     EXPECT_EQ(clock.now_ms(), 2500u);
 }
+
+TEST_F(EventDetectorTest, TriggerDuringReportingIsDropped) {
+    detector.on_trigger();
+    detector.on_trigger();
+    EXPECT_EQ(detector.event_count(), 1u);
+    EXPECT_EQ(detector.dropped_count(), 1u);
+    EXPECT_EQ(publisher.publish_calls, 1);
+}
+
+TEST_F(EventDetectorTest, TriggerDuringCooldownIsDropped) {
+    detector.on_trigger();
+    clock.advance(500);
+    detector.tick();
+    EXPECT_EQ(detector.state(), EventDetector::State::Cooldown);
+
+    detector.on_trigger();
+    EXPECT_EQ(detector.event_count(), 1u);
+    EXPECT_EQ(detector.dropped_count(), 1u);
+}
+
+TEST_F(EventDetectorTest, TriggerAfterFullCycleIsAccepted) {
+    detector.on_trigger();
+    clock.advance(500);
+    detector.tick();
+    clock.advance(2000);
+    detector.tick();
+    detector.on_trigger();
+    EXPECT_EQ(detector.event_count(), 2u);
+    EXPECT_EQ(detector.dropped_count(), 0u);
+}

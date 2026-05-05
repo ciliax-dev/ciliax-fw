@@ -75,7 +75,7 @@ file(WRITE ${_runtests_placeholder}
 )
 add_executable(runtests ${_runtests_placeholder})
 target_sources(runtests PRIVATE blinker_test.cpp)
-# target_sources(runtests PRIVATE ${APP_SRC}/domain/blinker.cpp)
+target_sources(runtests PRIVATE ${APP_SRC}/domain/blinker.cpp)
 target_include_directories(runtests PRIVATE ${APP_SRC})
 target_compile_options(runtests PRIVATE
     ${_warning_flags}

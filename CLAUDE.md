@@ -75,6 +75,7 @@ Domain code should always be unit-testable on the host with no Zephyr involvemen
 
 ## Workflow conventions
 
+- **`main` is human-only.** Claude never commits directly to `main`. All Claude work goes on a `feature/<short-name>`, `fix/<short-name>`, or `refactor/<short-name>` branch and lands on `main` only when a human merges the PR. If a session starts on `main` with changes to make, switch to a branch first.
 - **Branches:** `feature/<short-name>`, `fix/<short-name>`, `refactor/<short-name>`
 - **Commits:** conventional-style is fine but not enforced. Imperative mood ("add MFCC computation", not "added MFCC computation"). Body explains *why* if non-obvious.
 - **No commits with failing tests on shared branches.** Squash WIP locally before pushing.

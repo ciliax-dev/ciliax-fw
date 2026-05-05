@@ -130,7 +130,8 @@ For any task touching code, run *all* of these and confirm green:
 
 ```bash
 # 1. Architecture invariant
-grep -r '#include <zephyr/' app/src/domain app/src/ports app/src/adapters/mock
+grep -r --include='*.cpp' --include='*.hpp' --include='*.h' \
+    '#include <zephyr/' app/src/domain app/src/ports app/src/adapters/mock
 # (should return nothing)
 
 # 2. Host unit tests, with sanitizers

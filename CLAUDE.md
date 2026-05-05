@@ -36,7 +36,8 @@ app/src/
 **The single most important rule:** `domain/`, `ports/`, and `adapters/mock/` must never `#include <zephyr/...>` or any Nordic header. Run this check before claiming a task is done:
 
 ```bash
-grep -r '#include <zephyr/' app/src/domain app/src/ports app/src/adapters/mock
+grep -r --include='*.cpp' --include='*.hpp' --include='*.h' \
+    '#include <zephyr/' app/src/domain app/src/ports app/src/adapters/mock
 ```
 
 If it returns anything, the architecture is broken — fix before continuing.
@@ -88,7 +89,8 @@ For any task touching code, run *all* of these and confirm green before declarin
 
 ```bash
 # 1. Architecture invariant
-grep -r '#include <zephyr/' app/src/domain app/src/ports app/src/adapters/mock
+grep -r --include='*.cpp' --include='*.hpp' --include='*.h' \
+    '#include <zephyr/' app/src/domain app/src/ports app/src/adapters/mock
 # (should return nothing)
 
 # 2. Host unit tests, with sanitizers

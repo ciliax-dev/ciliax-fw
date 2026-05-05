@@ -16,9 +16,9 @@
 | 4 | Minimal app builds | done (build green for `nrf5340dk/nrf5340/cpuapp`) |
 | 5 | Flash & verify on DK | done (LED + serial line confirmed by human) |
 | 6 | Docker lockdown | done (`scripts/build.sh` runs `zephyrprojectrtos/ci@sha256:db4d04…`) |
-| 7 | Enable C++ | not started |
-| 8 | Carve architecture | not started |
-| 9 | First port + mock | not started |
+| 7 | Enable C++ | done (`CONFIG_CPP` / `CONFIG_STD_CPP20`; ETL pinned at `modules/lib/etl`; libstdc++ headers re-exposed under MINIMAL_LIBCPP; flashed, serial confirmed) |
+| 8 | Carve architecture | done (README in each of `domain/`/`ports/`/`adapters/zephyr/`/`adapters/mock/`; CMake globs `domain/*.cpp` and `adapters/zephyr/*.cpp`; `src/` on include path) |
+| 9 | First port + mock | done (`ports/i_led.hpp`, `adapters/mock/mock_led.hpp`; both compile standalone with `g++ -std=c++20`) |
 | 10 | Host test infra | not started |
 | 11 | TDD Blinker | not started |
 | 12 | Zephyr LED adapter + main | not started |
@@ -578,7 +578,7 @@ Expected: clean build.
 > Set up a smoke test on `native_sim`:
 >
 > 1. Create `tests/integration/blink/CMakeLists.txt`: standard ztest preamble (`find_package(Zephyr ...)`), single source `src/main.c`, plus `target_include_directories(app PRIVATE ${CMAKE_SOURCE_DIR}/../../../app/src)`.
-> 2. Create `tests/integration/blink/prj.conf` enabling `CONFIG_ZTEST`, `CONFIG_LOG`, `CONFIG_CPP`, `CONFIG_STD_CPP20`, `CONFIG_REQUIRES_FULL_LIBCPP`.
+> 2. Create `tests/integration/blink/prj.conf` enabling `CONFIG_ZTEST`, `CONFIG_LOG`, `CONFIG_CPP`, `CONFIG_STD_CPP20`. **Do not** add `CONFIG_REQUIRES_FULL_LIBCPP` — match the firmware's MINIMAL_LIBCPP profile so heap-using STL stays unlinked in tests too. The same libstdc++ header re-exposure as `app/CMakeLists.txt` (or the extracted `cmake/` helper, once that lands) needs to apply to this test's CMakeLists.
 > 3. Create `tests/integration/blink/src/main.c` with a single `ZTEST_SUITE(blink_smoke, NULL, NULL, NULL, NULL, NULL)` and one `ZTEST(blink_smoke, sanity)` body of `zassert_true(true)`.
 > 4. Create `tests/integration/blink/testcase.yaml` allowing only `native_sim`, harness `ztest`, tag `integration`.
 > 5. Run `west twister -T tests/integration/blink -p native_sim --inline-logs` and report results.
@@ -666,3 +666,5 @@ Things that diverged from the original plan during execution. Recorded so a re-r
 - **Step 6 — image swap.** The plan named `nordicplayground/nrfconnect-sdk:v3.2-branch`; that publisher stopped releasing tags after `v2.9-branch` (Dec 2024) and has no v3.x image. We use `zephyrprojectrtos/ci:v0.28.9` (Zephyr SDK 0.17.4, which matches `zephyr/SDK_VERSION` for ncs-v3.2.4). Newer CI tags (v0.29.x) ship Zephyr SDK 1.0.x, which `find_package(Zephyr-sdk 0.16)` rejects on version-major mismatch. The image also does not export `ZEPHYR_SDK_INSTALL_DIR`; the build script sets it explicitly.
 - **Sysbuild artifact path.** With sysbuild (the default in NCS v3.2.x), each subimage gets its own build dir. The flashable hex is at `build/app/zephyr/zephyr.hex` (or the multi-image `build/merged.hex`), not the pre-sysbuild `build/zephyr/zephyr.hex` referenced in some step verifications.
 - **Commit-on-DK-verify.** The plan ends Step 5 with a single combined commit covering Steps 4 + 5. We chose one-commit-per-step instead: Step 4's build-passing files committed before the flash, Step 5 produces no file changes and is verified by the human without a marker commit.
+- **Step 7 — libcpp / ETL setup.** The original plan added `CONFIG_REQUIRES_FULL_LIBCPP=y` + `CONFIG_GLIBCXX_LIBCPP=y` to get the C++20 headers (`<array>`, `<span>`, `<optional>`, …). Those configs link the full libstdc++ runtime, which would erase the link-time guarantee that heap-using STL (`std::vector`, `std::string`, `std::map`, `<iostream>`) is unavailable. We kept `MINIMAL_LIBCPP`, added ETL to the manifest (pinned `20.47.1` at `modules/lib/etl`), and re-exposed just the toolchain's libstdc++ headers in `app/CMakeLists.txt` as a `SYSTEM` include (located via `${CMAKE_CXX_COMPILER} -dumpmachine` so it survives SDK / target-arch changes). Net effect: header-only STL compiles, heap-using STL still fails at link, ETL provides the canonical fixed-capacity container path. `docs/cpp_subset.md`, `docs/background.md`, and `CLAUDE.md` were updated to match. Step 7 above was rewritten in place.
+- **Step 7 — `GIT_EXEC_PATH` needed for `west update` outside Docker.** When invoking `west update` from the NCS toolchain bundle's environment (i.e. not via `scripts/build.sh`), the bundle's git can't fetch over HTTPS unless `GIT_EXEC_PATH` points at the bundle's own `usr/local/libexec/git-core` (otherwise: `git: 'remote-https' is not a git command`). The toolchain's `environment.json` has this entry; `nrfutil toolchain-manager launch ...` sets it, hand-rolled `PATH` exports often don't. Hit when fetching the new ETL manifest project.

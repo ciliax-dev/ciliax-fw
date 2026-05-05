@@ -49,7 +49,7 @@ Ports are the seams that make the rest of the system testable. Every external de
 - **Build:** west + CMake + Kconfig + Devicetree (standard Zephyr stack)
 - **Language:** C++20 (`CONFIG_STD_CPP20=y`). Minimal C++ runtime — full libstdc++ deliberately *not* linked, so heap-allocating standard containers (`std::vector`, `std::string`, `std::map`, `<iostream>`) compile but fail at link. Use ETL for runtime containers — wired up via `west.yml` at `<workspace>/modules/lib/etl/`. See [`docs/cpp_subset.md`](docs/cpp_subset.md) for how this is achieved (Zephyr's `MINIMAL_LIBCPP` + selective re-exposure of the toolchain's libstdc++ headers in `app/CMakeLists.txt`).
 - **Test framework:** GoogleTest for host unit tests; ztest for `native_sim` integration
-- **CI:** GitHub Actions; `nordicplayground/nrfconnect-sdk` Docker image pinned by digest
+- **CI / reproducible build:** GitHub Actions; `zephyrprojectrtos/ci` Docker image pinned by digest, driven by `scripts/build.sh`. (`nordicplayground/nrfconnect-sdk` was the original plan but stopped publishing tags after `v2.9-branch`; it has no v3.x image.)
 - **Format/lint:** clang-format (LLVM-derived), clang-tidy (advisory at first)
 
 ## C++ subset
@@ -80,6 +80,7 @@ Domain code should always be unit-testable on the host with no Zephyr involvemen
 - **Commits:** conventional-style is fine but not enforced. Imperative mood ("add MFCC computation", not "added MFCC computation"). Body explains *why* if non-obvious.
 - **No commits with failing tests on shared branches.** Squash WIP locally before pushing.
 - **PR descriptions** state: what changed, why, how it was tested, anything reviewers should look at carefully. No template ceremony.
+- **Update docs alongside the change.** Whenever a task lands a lasting effect — completing a phase plan step, swapping a tool, adding/removing a dependency, changing a build path, or any decision that diverges from a doc — update the affected docs in the same commit (or an immediately following one). Targets in priority order: the relevant phase plan in `docs/phases/`, then `CLAUDE.md`, `README.md`, and `docs/<area>.md`. Record what's done and any plan deltas; do not leave divergences only in chat history or commit messages, since the next reader of the repo won't see those. This applies even when the user did not explicitly ask for the doc update.
 
 ## Verification before declaring "done"
 

@@ -138,8 +138,9 @@ cmake -S tests/host -B tests/host/build-asan -DENABLE_SANITIZERS=ON
 cmake --build tests/host/build-asan -j
 ctest --test-dir tests/host/build-asan --output-on-failure
 
-# 3. Firmware build (matches CI)
-west build -b nrf5340dk/nrf5340/cpuapp app --pristine=auto
+# 3. Firmware build (matches CI). Either:
+west build -b nrf5340dk/nrf5340/cpuapp app --pristine=auto   # local toolchain
+./scripts/build.sh                                           # digest-pinned Docker, reproducible
 
 # 4. Integration tests on native_sim
 west twister -T tests/integration -p native_sim --inline-logs

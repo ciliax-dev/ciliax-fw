@@ -6,6 +6,27 @@
 
 **Hardware:** nRF5340 DK only.
 
+## Status
+
+| Step | Title | State |
+|------|-------|-------|
+| 1 | Toolchain install | done (host has NCS v3.2.4 via `nrfutil toolchain-manager`) |
+| 2 | Repo skeleton | done |
+| 3 | West workspace | done (`west.yml` pinned to v3.2.4) |
+| 4 | Minimal app builds | done (build green for `nrf5340dk/nrf5340/cpuapp`) |
+| 5 | Flash & verify on DK | done (LED + serial line confirmed by human) |
+| 6 | Docker lockdown | done (`scripts/build.sh` runs `zephyrprojectrtos/ci@sha256:db4d04…`) |
+| 7 | Enable C++ | not started |
+| 8 | Carve architecture | not started |
+| 9 | First port + mock | not started |
+| 10 | Host test infra | not started |
+| 11 | TDD Blinker | not started |
+| 12 | Zephyr LED adapter + main | not started |
+| 13 | native_sim ztest | not started |
+| 14 | Lint + format + CI | not started |
+
+See [Plan deltas](#plan-deltas) for divergences from the original plan that were applied during execution.
+
 ---
 
 ## How to use this plan with Claude
@@ -297,9 +318,9 @@ Expected: only `west.yml` is new and tracked. Modules cloned outside the repo ar
 
 **Verify:**
 ```bash
-ls build/zephyr/zephyr.hex
+ls build/app/zephyr/zephyr.hex
 ```
-Expected: file exists.
+Expected: file exists. (Sysbuild puts each subimage in its own directory; the merged hex is at `build/merged.hex`.)
 
 ---
 
@@ -337,16 +358,16 @@ git add . && git commit -m "Minimal app builds and runs on DK"
 
 > Set up reproducible Docker builds:
 >
-> 1. Pull `nordicplayground/nrfconnect-sdk:v3.2-branch` and capture its repo digest (`docker inspect ... --format '{{index .RepoDigests 0}}'`).
-> 2. Create `scripts/build.sh` (executable) that runs `west update && west build -b nrf5340dk/nrf5340/cpuapp app --pristine=auto` inside a container pinned to that exact digest, with the project bind-mounted and the user mapped to the host UID/GID.
+> 1. Pull `zephyrprojectrtos/ci:v0.28.9` (bundles Zephyr SDK 0.17.4, which matches `zephyr/SDK_VERSION` for ncs-v3.2.4) and capture its repo digest (`docker inspect ... --format '{{index .RepoDigests 0}}'`). Do **not** use `nordicplayground/nrfconnect-sdk` — that publisher has no v3.x tag.
+> 2. Create `scripts/build.sh` (executable) that runs `west update && west build -b nrf5340dk/nrf5340/cpuapp app --pristine=auto` inside a container pinned to that exact digest, with the parent west workspace bind-mounted at `/workdir`, the user mapped to the host UID/GID, and `ZEPHYR_SDK_INSTALL_DIR=/opt/toolchains/zephyr-sdk-0.17.4` exported (the image does not export it).
 > 3. Update `README.md`'s build section to reference this script as the canonical build command.
 >
-> Run the script once and confirm it produces `build/zephyr/zephyr.hex`.
+> Run the script once and confirm it produces `build/app/zephyr/zephyr.hex`.
 
 **Verify:**
 ```bash
 ./scripts/build.sh
-ls build/zephyr/zephyr.hex
+ls build/app/zephyr/zephyr.hex
 ```
 
 **Note:** This step is parallel to Step 7 — you can do it later if you want to keep momentum. CI will work without it.
@@ -634,3 +655,14 @@ Phase 0 is complete when **all** of these are true:
 - **Treating `docs/` as TODO.** The three documents written during Phase 0 (`cpp_subset.md`, `architecture.md`, `development.md`) only get harder to write later. Confirm Claude wrote them with substance, not placeholders.
 
 When all 13 boxes in the definition of done check, the foundation is real, and Phase 1 (the EventDetector state machine) starts on top of this scaffold without modifying any of it.
+
+---
+
+## Plan deltas
+
+Things that diverged from the original plan during execution. Recorded so a re-run, or a future reader, doesn't have to rediscover them.
+
+- **Step 3 — west allowlist needs `cmsis_6` for NCS v3.2.x.** NCS v3.2 splits CMSIS into legacy `cmsis` (`modules/hal/cmsis`) and the new `cmsis_6` (`modules/hal/cmsis_6`). Without both in `name-allowlist`, `SOC_FAMILY_NORDIC_NRF` y-selects `CMSIS_CORE_HAS_SYSTEM_CORE_CLOCK` from `modules/cmsis_6/Kconfig` whose dependencies aren't satisfied, and Zephyr's strict-warning Kconfig gate aborts the build. The plan's allowlist has been updated.
+- **Step 6 — image swap.** The plan named `nordicplayground/nrfconnect-sdk:v3.2-branch`; that publisher stopped releasing tags after `v2.9-branch` (Dec 2024) and has no v3.x image. We use `zephyrprojectrtos/ci:v0.28.9` (Zephyr SDK 0.17.4, which matches `zephyr/SDK_VERSION` for ncs-v3.2.4). Newer CI tags (v0.29.x) ship Zephyr SDK 1.0.x, which `find_package(Zephyr-sdk 0.16)` rejects on version-major mismatch. The image also does not export `ZEPHYR_SDK_INSTALL_DIR`; the build script sets it explicitly.
+- **Sysbuild artifact path.** With sysbuild (the default in NCS v3.2.x), each subimage gets its own build dir. The flashable hex is at `build/app/zephyr/zephyr.hex` (or the multi-image `build/merged.hex`), not the pre-sysbuild `build/zephyr/zephyr.hex` referenced in some step verifications.
+- **Commit-on-DK-verify.** The plan ends Step 5 with a single combined commit covering Steps 4 + 5. We chose one-commit-per-step instead: Step 4's build-passing files committed before the flash, Step 5 produces no file changes and is verified by the human without a marker commit.
